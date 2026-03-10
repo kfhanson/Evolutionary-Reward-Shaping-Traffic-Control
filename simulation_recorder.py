@@ -43,7 +43,7 @@ except ImportError:
 SUMO_BINARY      = checkBinary('sumo')          # headless — faster recording
 CONFIG_FILE      = "aeon-froggy-middle-heady-traffic.sumocfg"
 TRAFFIC_LIGHT_ID = 'cluster_3639980474_3640024452_3640024453_699593332'
-MODEL_LOAD_PATH  = "grid_search_models/model_lr0.0005_gamma0.95_ep100_bs128_trial7.weights.h5"
+MODEL_LOAD_PATH  = "model_lr0.0005_gamma0.95_ep100_bs128_trial7.weights.h5"
 
 # Output CSV — timestamped so multiple runs don't overwrite each other
 OUTPUT_DIR = "simulation_logs"
