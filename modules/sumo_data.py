@@ -16,7 +16,7 @@ try:
 except ImportError:
     sys.exit("Please set the SUMO_HOME environment variable or ensure SUMO tools are in your Python path.")
 
-SUMO_BINARY = checkBinary('sumo-gui') 
+SUMO_BINARY = checkBinary('sumo') 
 CONFIG_FILE = "aeon-froggy-middle-heady-traffic.sumocfg" 
 NET_FILE = "osm.net.xml" 
 TRAFFIC_LIGHT_ID = 'cluster_3639980474_3640024452_3640024453_699593332'
