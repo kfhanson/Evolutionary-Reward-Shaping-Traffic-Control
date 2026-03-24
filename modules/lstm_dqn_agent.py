@@ -6,7 +6,6 @@ import pandas as pd
 import random
 from collections import deque
 
-# --- 1. LSTM-DQN Neural Network ---
 class LSTMDQN(nn.Module):
     def __init__(self, input_dim=4, hidden_dim=64, output_dim=4):
         super(LSTMDQN, self).__init__()
@@ -14,18 +13,16 @@ class LSTMDQN(nn.Module):
         
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.relu = nn.ReLU()
-        # batch_first=True -> input shape: (batch, seq_len, feature)
         self.lstm = nn.LSTM(hidden_dim, hidden_dim, batch_first=True)
         self.fc2 = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x, hidden=None):
         out = self.relu(self.fc1(x))
         out, hidden = self.lstm(out, hidden)
-        out = out[:, -1, :] # Take the last sequence output
+        out = out[:, -1, :]
         q_values = self.fc2(out)
         return q_values, hidden
 
-# --- 2. Multi-Objective Replay Buffer ---
 class MultiObjectiveReplayBuffer:
     def __init__(self, capacity=100000):
         self.buffer = deque(maxlen=capacity)
@@ -54,7 +51,6 @@ class MultiObjectiveReplayBuffer:
         except Exception as e:
             print(f"Error loading CSV into buffer: {e}")
 
-# --- 3. RL Agent ---
 class LSTMDQNAgent:
     def __init__(self, state_dim=4, action_dim=4, lr=1e-3, gamma=0.99, batch_size=64):
         self.state_dim = state_dim
@@ -87,8 +83,10 @@ class LSTMDQNAgent:
         w1, w2, w3 = weights
         states, actions, r1s, r2s, r3s, next_states, dones = self.memory.sample(self.batch_size)
 
-        # Apply Pareto Weights to Scalarize Reward (Eq 1 from paper)
-        scalarized_rewards = (w1 * r1s) + (w2 * r2s) + (w3 * r3s)
+        scaled_r1s = r1s * 10.0      
+        scaled_r2s = r2s * 0.05      
+        scaled_r3s = r3s * 0.01      
+        scalarized_rewards = (w1 * scaled_r1s) + (w2 * scaled_r2s) + (w3 * scaled_r3s)
 
         states = torch.FloatTensor(states).unsqueeze(1).to(self.device)
         next_states = torch.FloatTensor(next_states).unsqueeze(1).to(self.device)
@@ -107,6 +105,7 @@ class LSTMDQNAgent:
         loss = self.loss_fn(current_q, target_q)
         self.optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=1.0)
         self.optimizer.step()
 
         return loss.item()
