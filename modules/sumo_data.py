@@ -12,9 +12,9 @@ try:
         sys.path.append(tools)
         from sumolib import checkBinary, net
     else:
-        sys.exit("SUMO_HOME environment variable is not set.")
+        sys.exit()
 except ImportError:
-    sys.exit("Please set the SUMO_HOME environment variable or ensure SUMO tools are in your Python path.")
+    sys.exit()
 
 SUMO_BINARY = checkBinary('sumo') 
 CONFIG_FILE = "aeon-froggy-middle-heady-traffic.sumocfg" 
@@ -26,7 +26,7 @@ CONGESTION_THRESHOLD_POLICY = 5 # vehicles
 MIN_GREEN_TIME_IOT_POLICY = 10  # seconds
 YELLOW_TIME_IOT_POLICY = 6      # seconds
 
-# --- Action Space (Restored to 4 distinct actions) ---
+# --- Action Space ---
 # 0: South Green (Phase 0)
 # 1: East Green (Phase 2)
 # 2: North Green (Phase 4)
@@ -34,19 +34,15 @@ YELLOW_TIME_IOT_POLICY = 6      # seconds
 AGENT_ACTION_TO_SUMO_GREEN_PHASE = {0: 0, 1: 2, 2: 4, 3: 6}
 SUMO_GREEN_PHASE_TO_AGENT_ACTION = {v: k for k, v in AGENT_ACTION_TO_SUMO_GREEN_PHASE.items()}
 
-# SUMO Green Phase Index -> SUMO Yellow Phase Index
 SUMO_GREEN_TO_YELLOW_PHASE = {0: 1, 2: 3, 4: 5, 6: 7}
 
-# --- State Space Definitions ---
 APPROACH_EDGES_FOR_STATE_LOGGING = {
     "north": "749313693#0",
     "south": "1053267667#1",
     "east":  "749662140#0",
     "west":  "885403818#1",
 }
-VEHICLE_BINS_FOR_STATE_LOGGING = [5, 15, 30]
 
-# --- Helpers ---
 def discretize_value_log(value, bins):
     for i, threshold in enumerate(bins):
         if value < threshold: return i
@@ -54,20 +50,20 @@ def discretize_value_log(value, bins):
 
 def get_sumo_state_for_log():
     try:
-        n = discretize_value_log(traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["north"]), VEHICLE_BINS_FOR_STATE_LOGGING)
-        s = discretize_value_log(traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["south"]), VEHICLE_BINS_FOR_STATE_LOGGING)
-        e = discretize_value_log(traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["east"]), VEHICLE_BINS_FOR_STATE_LOGGING)
-        w = discretize_value_log(traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["west"]), VEHICLE_BINS_FOR_STATE_LOGGING)
+        n = traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["north"])
+        s = traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["south"])
+        e = traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["east"])
+        w = traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["west"])
         return (n, s, e, w)
     except Exception as e_state:
         print(f"Error in get_sumo_state: {e_state}")
         return None
 
 def calculate_multi_objective_rewards():
-    """Calculates r1 (Throughput), r2 (Fairness), r3 (Smoothness) for the MOEA."""
+    # Calculates r1 (Throughput), r2 (Fairness), r3 (Smoothness) for the MOEA
     try:
         halt_counts = []
-        r1 = traci.simulation.getArrivedNumber() # Throughput
+        r1 = traci.simulation.getArrivedNumber()
         
         for edge_id in APPROACH_EDGES_FOR_STATE_LOGGING.values():
             halting = traci.edge.getLastStepHaltingNumber(edge_id)
@@ -81,14 +77,9 @@ def calculate_multi_objective_rewards():
         print(f"Error in rewards: {e_reward}")
         return 0.0, 0.0, 0.0
 
-# --- Rule-Based Policy for 4 Actions ---
 def get_rule_based_policy_action(current_tl_sumo_phase_idx):
-    """
-    Evaluates North, South, East, West congestion individually.
-    Prioritizes the most congested approach.
-    """
+    # Prioritize the most congested approach
     try:
-        # Map agent actions to their respective edge halting counts
         congestion_by_action = {
             2: traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["north"]),
             0: traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["south"]),
@@ -96,15 +87,10 @@ def get_rule_based_policy_action(current_tl_sumo_phase_idx):
             3: traci.edge.getLastStepHaltingNumber(APPROACH_EDGES_FOR_STATE_LOGGING["west"])
         }
         
-        # Sort actions by congestion level (highest first)
         sorted_actions = sorted(congestion_by_action.items(), key=lambda item: item[1], reverse=True)
         most_congested_action, max_congestion = sorted_actions[0]
-
-        # If the highest congestion is above threshold, switch/stay to that phase
         if max_congestion >= CONGESTION_THRESHOLD_POLICY:
             return most_congested_action
-
-        # If no significant congestion, maintain current phase if valid, else default to South (0)
         current_agent_action = SUMO_GREEN_PHASE_TO_AGENT_ACTION.get(current_tl_sumo_phase_idx)
         return current_agent_action if current_agent_action is not None else 0
 
@@ -112,22 +98,18 @@ def get_rule_based_policy_action(current_tl_sumo_phase_idx):
         print(f"Error in rule based policy: {e}")
         return random.choice(list(AGENT_ACTION_TO_SUMO_GREEN_PHASE.keys()))
 
-# --- Main Data Collection ---
 def run_sumo_and_log_data(num_simulation_steps=30000, data_collection_policy_name="rule_based"):
     sumo_cmd_list = [SUMO_BINARY, "-c", CONFIG_FILE,
                      "--waiting-time-memory", "1000", "--time-to-teleport", "-1",
                      "--no-step-log", "true", "--seed", str(random.randint(0, 100000))]
 
     traci.start(sumo_cmd_list)
-    print(f"SUMO started for Multi-Objective data collection (4 Actions).")
-
     csv_header = [
         "state_N", "state_S", "state_E", "state_W", "action", 
         "r1_throughput", "r2_fairness", "r3_smoothness",
         "next_state_N", "next_state_S", "next_state_E", "next_state_W", "done"
     ]
     logged_transitions = 0
-
     try:
         with open(OUTPUT_CSV_FILE, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
@@ -178,7 +160,6 @@ def run_sumo_and_log_data(num_simulation_steps=30000, data_collection_policy_nam
                 current_step += 1
                 phase_decision_timer += traci.simulation.getDeltaT()
                 
-                # Observe results
                 state_s_prime_for_log = get_sumo_state_for_log()
                 r1, r2, r3 = calculate_multi_objective_rewards()
                 done_for_log = traci.simulation.getMinExpectedNumber() == 0 or current_step >= num_simulation_steps
@@ -199,14 +180,11 @@ def run_sumo_and_log_data(num_simulation_steps=30000, data_collection_policy_nam
             print(f"Finished. Logged {logged_transitions} multi-objective transitions to {OUTPUT_CSV_FILE}.")
 
     except traci.exceptions.TraCIException as e:
-        print(f"\n[!] SUMO ERROR: {e}")
-        print("[!] This likely means your traffic light does not have 4 green phases programmed.")
-        print("[!] You must open your map in netedit and ensure the traffic light program has phases 0 through 7.\n")
+        print(f"\nSUMO ERROR: {e}")
     except Exception as e:
-        print(f"Unexpected Python error during data collection:")
+        print(f"Unexpected error")
         traceback.print_exc()
     finally:
-        # FIXED: Safely close TraCI
         try:
             traci.close()
         except Exception:
