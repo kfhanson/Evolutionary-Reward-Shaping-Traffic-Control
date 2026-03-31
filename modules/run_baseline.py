@@ -91,7 +91,8 @@ def evaluate_baseline(mode="default", agent=None, sim_steps=1000):
 def train_single_objective_agent(csv_file, weights):
     agent = LSTMDQNAgent()
     agent.memory.load_from_csv(csv_file)
-    for _ in range(3000): agent.train_step(weights=weights)
+    for _ in range(3000): 
+        agent.train_step(weights=weights)
     agent.update_target_network()
     return agent
 

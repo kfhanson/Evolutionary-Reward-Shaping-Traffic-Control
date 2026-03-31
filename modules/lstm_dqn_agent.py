@@ -52,11 +52,12 @@ class MultiObjectiveReplayBuffer:
             print(f"Error loading CSV into buffer: {e}")
 
 class LSTMDQNAgent:
-    def __init__(self, state_dim=4, action_dim=4, lr=1e-3, gamma=0.99, batch_size=64):
+    def __init__(self, state_dim=4, action_dim=4, lr=5e-4, gamma=0.99, batch_size=256):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.gamma = gamma
         self.batch_size = batch_size
+        # self.tau = tau
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.policy_net = LSTMDQN(state_dim, 64, action_dim).to(self.device)
@@ -112,3 +113,5 @@ class LSTMDQNAgent:
 
     def update_target_network(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
+        # for target_param, policy_param in zip(self.target_net.parameters(), self.policy_net.parameters()):
+        #     target_param.data.copy_(self.tau * policy_param.data + (1.0 - self.tau) * target_param.data)

@@ -98,6 +98,14 @@ def get_rule_based_policy_action(current_tl_sumo_phase_idx):
         print(f"Error in rule based policy: {e}")
         return random.choice(list(AGENT_ACTION_TO_SUMO_GREEN_PHASE.keys()))
 
+def get_fixed_time_policy_action(current_tl_sumo_phase_idx, phase_timer, duration=30):
+    current_action = SUMO_GREEN_PHASE_TO_AGENT_ACTION.get(current_tl_sumo_phase_idx, 0)
+    
+    if phase_timer >= duration:
+        return (current_action + 1) % 4
+    
+    return current_action
+
 def run_sumo_and_log_data(num_simulation_steps=30000, data_collection_policy_name="rule_based"):
     sumo_cmd_list = [SUMO_BINARY, "-c", CONFIG_FILE,
                      "--waiting-time-memory", "1000", "--time-to-teleport", "-1",
@@ -135,9 +143,10 @@ def run_sumo_and_log_data(num_simulation_steps=30000, data_collection_policy_nam
                 if not is_currently_green or phase_decision_timer >= MIN_GREEN_TIME_IOT_POLICY:
                     if data_collection_policy_name == "rule_based":
                         decided_agent_action = get_rule_based_policy_action(current_tl_sumo_phase_idx)
+                    elif data_collection_policy_name == "fixed_time":
+                        decided_agent_action = get_fixed_time_policy_action(current_tl_sumo_phase_idx, phase_decision_timer, duration=30)
                     else:
                         decided_agent_action = random.choice(list(AGENT_ACTION_TO_SUMO_GREEN_PHASE.keys()))
-
                     if decided_agent_action is not None: 
                         action_applied_by_policy_for_log = decided_agent_action
                         target_sumo_green_phase = AGENT_ACTION_TO_SUMO_GREEN_PHASE[decided_agent_action]

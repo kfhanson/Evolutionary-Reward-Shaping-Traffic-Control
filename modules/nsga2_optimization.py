@@ -108,7 +108,8 @@ class TrafficRewardShapingProblem(Problem):
             
             agent = LSTMDQNAgent()
             agent.memory.load_from_csv(self.offline_data_path)
-            for _ in range(1500): agent.train_step(weights=w.tolist())
+            for _ in range(1500): 
+                agent.train_step(weights=w.tolist())
             agent.update_target_network()
             
             throughput, variance, stops = evaluate_policy_in_sumo(agent, sim_steps=1000)
