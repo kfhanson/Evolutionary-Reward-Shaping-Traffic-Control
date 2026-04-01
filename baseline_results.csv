@@ -1,5 +1,5 @@
 Policy,Throughput,Variance,Stops
 Default (Fixed-Time),1011,66.86127693750001,35913
 Rule-Based Actuated,1015,20.399247437499998,20429
-Single-Obj RL (Max Throughput),1021,27.36334375,23250
-Single-Obj RL (Max Fairness),744,344.2661908766092,86682
+Single-Obj RL (Max Throughput),1032,21.24082918739635,20977
+Single-Obj RL (Max Fairness),625,393.41876974999997,78822

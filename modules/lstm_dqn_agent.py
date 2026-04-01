@@ -52,7 +52,7 @@ class MultiObjectiveReplayBuffer:
             print(f"Error loading CSV into buffer: {e}")
 
 class LSTMDQNAgent:
-    def __init__(self, state_dim=4, action_dim=4, lr=5e-4, gamma=0.99, batch_size=256):
+    def __init__(self, state_dim=4, action_dim=4, lr=5e-4, gamma=0.95, batch_size=256):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.gamma = gamma
